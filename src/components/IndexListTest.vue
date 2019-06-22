@@ -48,7 +48,7 @@ export default {
       options: {
         pullUpLoad: {
           txt: {
-            more: '',
+            more: '上拉加载更多',
             noMore: '没有更多数据'
           },
           visible: true,
@@ -61,7 +61,7 @@ export default {
       from: 1,
       size: 20,
       list: [],
-      noMoreData: false
+      isNoMore: false
     }
   },
   filters: {
@@ -78,10 +78,15 @@ export default {
       // console.log(title)
     },
     onPullingDown () {
+      this.isNoMore = false
       this.from = 1
       this.getList(1)
     },
     onPullingUp () {
+      if (this.isNoMore) {
+        this.$refs.indexList.forceUpdate()
+        return
+      }
       this.getList()
     },
     getList (isUpdate) {
@@ -93,10 +98,8 @@ export default {
       })
       .then(res => {
         const { list } = res.data
+        const len = list.length
         let arr = []
-        if (!isUpdate) {
-          arr = [...this.list]
-        }
         list.map(v => {
           let time = parseTime(v.createTime, '{y}年{m}月')
           let index = arr.findIndex(v2 => v2.name === time)
@@ -108,22 +111,38 @@ export default {
           }
           arr[index > -1 ? index : arr.length - 1].items.push(v)
         })
-        this.list = arr
-        const len = list.length
-        if (!isUpdate) {
-          if (len < this.size) {
-            if (len === 0) {
-              this.$refs.indexList.forceUpdate(false, true)
+        if (isUpdate) {
+          if (len) {
+            this.list = arr
+          } else {
+            this.$refs.indexList.forceUpdate()
+          }
+        } else {
+          arr.map(v => {
+            let index = this.list.findIndex(v2 => v2.name === v.name)
+            if (index > -1) {
+              this.list[index].items.push(...(v.items))
             } else {
-              this.$refs.indexList.forceUpdate(true, true)
+              this.list.push(v)
+            }
+          })
+          if (len) {
+            if (len === this.size) {
+              setTimeout(() => {
+                this.$refs.indexList.forceUpdate(true)
+              }, 30)
+            } else {
+              console.log('nodata')
+              this.isNoMore = true
+              setTimeout(() => {
+                this.$refs.indexList.forceUpdate(true, true)
+              }, 30)
             }
           } else {
-            this.$refs.indexList.forceUpdate(true, false)
+            this.$refs.indexList.forceUpdate()
+            this.isNoMore = true
           }
           this.from++
-        } else {
-          console.log('h')
-          this.$refs.indexList.forceUpdate(true)
         }
       })
     }
